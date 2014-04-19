@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/braintree/manners"
-	"github.com/rcrowley/goagain"
+	"github.com/titanous/goagain"
 )
 
 func newListener(l net.Listener) net.Listener {
@@ -74,8 +74,6 @@ func ListenAndServe(addr string, handler http.Handler) error {
 		gl = manners.NewListener(newListener(l), srv)
 		go serve(gl)
 
-		// If this is the child, send the parent SIGUSR2. If this is the
-		// parent, send the child SIGQUIT.
 		if err := goagain.Kill(); nil != err {
 			return err
 		}
