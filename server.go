@@ -3,19 +3,50 @@
 package mannersagain
 
 import (
+	"errors"
 	"log"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/braintree/manners"
 	"github.com/rcrowley/goagain"
 )
 
-type nopCloser struct {
-	net.Listener
+func newListener(l net.Listener) net.Listener {
+	return listener{Listener: l, closed: make(chan struct{})}
 }
 
-func (nopCloser) Close() error { return nil }
+type listener struct {
+	net.Listener
+	closed chan struct{}
+}
+
+var ErrClosed = errors.New("mannersagain: listener has been gracefully closed")
+
+func (l listener) Accept() (net.Conn, error) {
+	for {
+		select {
+		case <-l.closed:
+			return nil, ErrClosed
+		default:
+		}
+
+		// Set a deadline so Accept doesn't block forever, which gives
+		// us an opportunity to stop gracefully.
+		l.Listener.(*net.TCPListener).SetDeadline(time.Now().Add(100e6))
+		c, err := l.Listener.Accept()
+		if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
+			continue
+		}
+		return c, err
+	}
+}
+
+func (l listener) Close() error {
+	close(l.closed)
+	return nil
+}
 
 func ListenAndServe(addr string, handler http.Handler) error {
 	var gl *manners.GracefulListener
@@ -36,11 +67,11 @@ func ListenAndServe(addr string, handler http.Handler) error {
 			return err
 		}
 		log.Println("Listening on", l.Addr())
-		gl = manners.NewListener(nopCloser{l}, srv)
+		gl = manners.NewListener(newListener(l), srv)
 		go serve(gl)
 	} else {
 		log.Println("Resuming listening on", l.Addr())
-		gl = manners.NewListener(nopCloser{l}, srv)
+		gl = manners.NewListener(newListener(l), srv)
 		go serve(gl)
 
 		// If this is the child, send the parent SIGUSR2. If this is the
