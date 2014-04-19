@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/braintree/manners"
@@ -85,19 +86,23 @@ func ListenAndServe(addr string, handler http.Handler) error {
 		return err
 	}
 
-	// Stop accepting new connections
-	gl.Close()
-	// Wait for all existing connections to complete
-	<-done
+	// Wait returns one of SIGINT, SIGTERM, SIGQUIT, SIGUSR2
+	// We should stop gracefully if we receive one of the second two
+	if sig != goagain.SIGINT && sig != goagain.SIGTERM {
+		// Stop accepting new connections
+		gl.Close()
+		// Wait for all existing connections to complete
+		<-done
+	}
 
-	if goagain.Strategy == goagain.Double {
+	if goagain.Strategy == goagain.Double && sig == goagain.SIGUSR2 {
 		// If we received SIGUSR2, re-exec the parent process.
-		if sig == goagain.SIGUSR2 {
-			if err := goagain.Exec(l); err != nil {
-				return err
-			}
+		if err := goagain.Exec(l); err != nil {
+			return err
 		}
 	}
 
+	// We were told to exit, so do it!
+	os.Exit(0)
 	return nil
 }
