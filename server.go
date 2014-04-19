@@ -18,7 +18,6 @@ type nopCloser struct {
 func (nopCloser) Close() error { return nil }
 
 func ListenAndServe(addr string, handler http.Handler) error {
-	goagain.Strategy = goagain.Double
 	var gl *manners.GracefulListener
 	srv := manners.NewServer()
 
@@ -62,10 +61,12 @@ func ListenAndServe(addr string, handler http.Handler) error {
 	// Wait for all existing connections to complete
 	<-done
 
-	// If we received SIGUSR2, re-exec the parent process.
-	if sig == goagain.SIGUSR2 {
-		if err := goagain.Exec(l); err != nil {
-			return err
+	if goagain.Strategy == goagain.Double {
+		// If we received SIGUSR2, re-exec the parent process.
+		if sig == goagain.SIGUSR2 {
+			if err := goagain.Exec(l); err != nil {
+				return err
+			}
 		}
 	}
 
