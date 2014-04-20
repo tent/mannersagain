@@ -10,8 +10,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/braintree/manners"
 	"github.com/titanous/goagain"
+	"github.com/titanous/manners"
 )
 
 func newListener(l net.Listener) net.Listener {
