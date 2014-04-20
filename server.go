@@ -35,7 +35,7 @@ func (l listener) Accept() (net.Conn, error) {
 
 		// Set a deadline so Accept doesn't block forever, which gives
 		// us an opportunity to stop gracefully.
-		l.Listener.(*net.TCPListener).SetDeadline(time.Now().Add(100e6))
+		l.Listener.(*net.TCPListener).SetDeadline(time.Now().Add(100 * time.Millisecond))
 		c, err := l.Listener.Accept()
 		if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
 			continue
