@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/titanous/goagain"
@@ -35,7 +36,11 @@ func (l listener) Accept() (net.Conn, error) {
 
 		// Set a deadline so Accept doesn't block forever, which gives
 		// us an opportunity to stop gracefully.
-		l.Listener.(*net.TCPListener).SetDeadline(time.Now().Add(100 * time.Millisecond))
+		if dl, ok := l.Listener.(interface {
+			SetDeadline(time.Time) error
+		}); ok {
+			dl.SetDeadline(time.Now().Add(100 * time.Millisecond))
+		}
 		c, err := l.Listener.Accept()
 		if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
 			continue
@@ -63,7 +68,11 @@ func ListenAndServe(addr string, handler http.Handler) error {
 	l, err := goagain.Listener()
 	if err != nil {
 		// We don't have an inherited listener, create a new one
-		l, err = net.Listen("tcp", addr)
+		if strings.HasPrefix(addr, "unix:") {
+			l, err = net.Listen("unix", addr[5:])
+		} else {
+			l, err = net.Listen("tcp", addr)
+		}
 		if err != nil {
 			return err
 		}
